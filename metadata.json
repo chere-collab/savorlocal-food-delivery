@@ -1,0 +1,6 @@
+{
+  "name": "SavorLocal | Artisan Food Delivery & Real-Time Tracking",
+  "description": "Connect with independent local restaurants, track your delivery with live GPS maps, enjoy secure checkout, earn SavorClub loyalty rewards, and filter by dietary preferences.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

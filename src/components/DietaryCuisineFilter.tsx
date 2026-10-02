@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, SlidersHorizontal, Sparkles, Clock, Check, X } from 'lucide-react';
 import { DietaryPreference, CuisineType } from '../types/foodDelivery';
+import { VoiceSearchButton } from './VoiceSearchButton';
 
 interface DietaryCuisineFilterProps {
   searchQuery: string;
@@ -81,16 +82,23 @@ export const DietaryCuisineFilter: React.FC<DietaryCuisineFilterProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search sourdough pizza, bluefin tuna, vegan bowls, birria tacos..."
-            className="w-full pl-10 pr-10 py-2.5 bg-zinc-900/90 border border-zinc-800 rounded-xl text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 transition-all"
+            className="w-full pl-10 pr-20 py-2.5 bg-zinc-900/90 border border-zinc-800 rounded-xl text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 transition-all"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-1 text-zinc-500 hover:text-white rounded-md transition-colors"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            <VoiceSearchButton
+              onTranscript={(transcript) => setSearchQuery(transcript)}
+            />
+          </div>
         </div>
 
         {/* Filter Drawer Toggle */}
@@ -111,6 +119,25 @@ export const DietaryCuisineFilter: React.FC<DietaryCuisineFilterProps> = ({
           )}
         </button>
       </div>
+
+      {/* Voice Search Quick Suggestions */}
+      {!searchQuery && (
+        <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-400 py-0.5">
+          <span className="text-zinc-500 whitespace-nowrap flex items-center gap-1">
+            <span>🎙️ Try:</span>
+          </span>
+          {['Truffle Pizza', 'Vegan Bowl', 'Spicy Tuna', 'Birria Tacos', 'Farm Greens'].map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setSearchQuery(suggestion)}
+              className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800/80 hover:border-amber-500/50 hover:text-amber-400 text-zinc-400 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Dietary Preferences Filter Row (Horizontal Scrolling Interactive Segmented Control) */}
       <div>

@@ -112,6 +112,52 @@ class SoundEffects {
       // Ignore
     }
   }
+
+  // Mic start chime
+  public playMicStart() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Mic stop chime
+  public playMicStop() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.exponentialRampToValueAtTime(380, now + 0.12);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 export const soundManager = new SoundEffects();

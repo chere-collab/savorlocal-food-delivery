@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { soundManager } from '../utils/soundEffects';
 
-// Type definitions for Web Speech API
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
   resultIndex: number;
@@ -37,6 +36,7 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
   const [interimTranscript, setInterimTranscript] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(true);
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const callbackRef = useRef(onFinalTranscript);
@@ -45,7 +45,7 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
     callbackRef.current = onFinalTranscript;
   }, [onFinalTranscript]);
 
-  useEffect(() => {
+  const initRecognition = useCallback(() => {
     const SpeechRecognitionAPI =
       typeof window !== 'undefined'
         ? window.SpeechRecognition || window.webkitSpeechRecognition
@@ -53,7 +53,7 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
 
     if (!SpeechRecognitionAPI) {
       setIsSupported(false);
-      return;
+      return null;
     }
 
     try {
@@ -65,6 +65,7 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
       recognition.onstart = () => {
         setIsListening(true);
         setErrorMessage(null);
+        setIsPermissionDenied(false);
         setInterimTranscript('');
         soundManager.playMicStart();
       };
@@ -98,12 +99,13 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.warn('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          setErrorMessage('Microphone access blocked. Please allow permissions.');
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setErrorMessage('Microphone access blocked. Click to see how to enable.');
+          setIsPermissionDenied(true);
         } else if (event.error === 'no-speech') {
           setErrorMessage('No speech detected. Try again.');
         } else if (event.error === 'network') {
-          setErrorMessage('Network connection issue for voice search.');
+          setErrorMessage('Network connection issue for voice recognition.');
         } else {
           setErrorMessage('Voice search unavailable.');
         }
@@ -119,9 +121,15 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
       };
 
       recognitionRef.current = recognition;
+      return recognition;
     } catch {
       setIsSupported(false);
+      return null;
     }
+  }, []);
+
+  useEffect(() => {
+    initRecognition();
 
     return () => {
       if (recognitionRef.current) {
@@ -132,13 +140,14 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
         }
       }
     };
-  }, []);
+  }, [initRecognition]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (!isSupported) {
       setErrorMessage('Voice search is not supported in this browser. Please use Chrome, Edge, or Safari.');
       return;
     }
+
     if (isListening && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -147,15 +156,50 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
       }
       return;
     }
+
+    // Attempt to explicitly trigger user permission prompt via getUserMedia if available
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Close audio track immediately, as SpeechRecognition uses its own input pipeline
+        stream.getTracks().forEach((track) => track.stop());
+        setIsPermissionDenied(false);
+        setErrorMessage(null);
+      } catch (err: unknown) {
+        console.warn('Microphone permission check error:', err);
+        const error = err as { name?: string };
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError' || error.name === 'SecurityError') {
+          setIsPermissionDenied(true);
+          setErrorMessage('Microphone access blocked. Click here to allow.');
+          return;
+        }
+      }
+    }
+
+    // Ensure recognition instance is ready
+    if (!recognitionRef.current) {
+      initRecognition();
+    }
+
     if (recognitionRef.current) {
       try {
         setErrorMessage(null);
         recognitionRef.current.start();
-      } catch (err) {
-        console.error('Failed to start speech recognition:', err);
+      } catch (err: unknown) {
+        console.warn('Failed to start speech recognition:', err);
+        const error = err as { name?: string };
+        if (error?.name === 'InvalidStateError') {
+          // Already running, abort and retry
+          try {
+            recognitionRef.current.abort();
+            setTimeout(() => recognitionRef.current?.start(), 100);
+          } catch {
+            // ignore
+          }
+        }
       }
     }
-  }, [isSupported, isListening]);
+  }, [isSupported, isListening, initRecognition]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
@@ -172,8 +216,10 @@ export function useVoiceSearch(onFinalTranscript: (text: string) => void) {
     interimTranscript,
     errorMessage,
     isSupported,
+    isPermissionDenied,
     startListening,
     stopListening,
     clearError: () => setErrorMessage(null),
+    setIsPermissionDenied,
   };
 }
